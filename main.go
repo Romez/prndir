@@ -4,47 +4,72 @@ import "fmt"
 import "os"
 import "flag"
 
-func printDir(path string, dir string, padding []rune, maxDepth int, isDir bool) {
-	if maxDepth < 0 {
+type EntryKind int
+type EntryPos int
+
+const (
+	Root EntryPos = iota
+	Last
+	Sibling
+)
+
+const (
+	FileEntry EntryKind = iota
+	DirEntry
+)
+
+func printDirRecur(path string, name string, padding []rune, depthLimit int, entryKind EntryKind, entryPos EntryPos) {
+	if depthLimit < 0 {
 		return
 	}
 
-	fullPath := path + dir
+	if entryPos == Sibling {
+		fmt.Printf("%s├─", string(padding))
+	} else if entryPos == Last {
+		fmt.Printf("%s└─", string(padding))
+	}
 
-	fmt.Printf("%s%s\n", string(padding), dir)
+	fmt.Printf("%s\n", name)
 
-	if padding[len(padding)-2] == '├' {
-        padding[len(padding)-2] = '│'
-		padding[len(padding)-1] = ' '
-    } else if padding[len(padding)-2] == '└' {
-		padding[len(padding)-2] = ' '
-        padding[len(padding)-1] = ' '
-    }
-
-	if !isDir {
+	if entryKind == FileEntry {
 		return
 	}
 
+	fullPath := path + name + "/"
 	entries, err := os.ReadDir(fullPath)
 	if err != nil {
 		fmt.Println("Read dir err:", err)
 		os.Exit(1)
 	}
 
+	if entryPos == Sibling {
+		padding = append(padding, '│', ' ', ' ')
+	} else if entryPos == Last {
+		padding = append(padding, ' ', ' ', ' ')
+	}
+
+	entriesLen := len(entries)
+	
 	for i, entry := range entries {
 		name := entry.Name()
 
-		if i == (len(entries) - 1) {
-			padding = append(padding, '└', '─')
-
-		} else {
-			padding = append(padding, '├', '─')
+		kind := FileEntry
+		if entry.IsDir() {
+			kind = DirEntry
 		}
 
-		printDir(fullPath + "/", name, padding, maxDepth - 1, entry.IsDir())
+		pos := Sibling
+		if i == (entriesLen - 1) {
+			pos = Last
+		}
 
-		padding = padding[0:len(padding) - 2]
+		printDirRecur(fullPath, name, padding, depthLimit - 1, kind, pos)
 	}
+}
+
+func printDir(path string, maxDepth int) {
+	padding := make([]rune, 0)
+	printDirRecur("", path, padding, maxDepth, DirEntry, Root)
 }
 
 func main() {
@@ -53,13 +78,10 @@ func main() {
 
 	flag.Parse()
 
-	if len(*folderPath) < 1 {
+	if folderPath == nil {
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	padding := make([]rune, 0)
-    padding = append(padding, ' ', ' ')
-
-	printDir("", *folderPath, padding, *maxDepth, true)
+	printDir(*folderPath, *maxDepth)
 }
