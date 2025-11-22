@@ -4,7 +4,11 @@ import "fmt"
 import "os"
 import "flag"
 
-func printDir(path string, dir string, padding []rune, isDir bool) {
+func printDir(path string, dir string, padding []rune, maxDepth int, isDir bool) {
+	if maxDepth < 0 {
+		return
+	}
+
 	fullPath := path + dir
 
 	fmt.Printf("%s%s\n", string(padding), dir)
@@ -20,7 +24,7 @@ func printDir(path string, dir string, padding []rune, isDir bool) {
 	if !isDir {
 		return
 	}
-	
+
 	entries, err := os.ReadDir(fullPath)
 	if err != nil {
 		fmt.Println("Read dir err:", err)
@@ -37,24 +41,25 @@ func printDir(path string, dir string, padding []rune, isDir bool) {
 			padding = append(padding, '├', '─')
 		}
 
-		printDir(fullPath + "/", name, padding, entry.IsDir())
+		printDir(fullPath + "/", name, padding, maxDepth - 1, entry.IsDir())
 
 		padding = padding[0:len(padding) - 2]
 	}
 }
 
 func main() {
-	rootDir := flag.String("d", "./", "directory path")
-	
+	folderPath := flag.String("f", "./", "folder path")
+	maxDepth := flag.Int("d", 64, "max depth")
+
 	flag.Parse()
 
-	if len(*rootDir) < 1 {
+	if len(*folderPath) < 1 {
 		flag.Usage()
 		os.Exit(1)
 	}
 
 	padding := make([]rune, 0)
     padding = append(padding, ' ', ' ')
-	
-	printDir("", *rootDir, padding, true)
+
+	printDir("", *folderPath, padding, *maxDepth, true)
 }
