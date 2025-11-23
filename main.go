@@ -18,38 +18,39 @@ const (
 	DirEntry
 )
 
-func printDirRecur(path string, name string, padding []rune, depthLimit int, entryKind EntryKind, entryPos EntryPos) {
+func printDirRecur(path string, name string, padding string, depthLimit int, entryKind EntryKind, entryPos EntryPos) error {
 	if depthLimit < 0 {
-		return
+		return nil
 	}
 
 	if entryPos == Sibling {
-		fmt.Printf("%s├─", string(padding))
+		fmt.Printf("%s├─", padding)
 	} else if entryPos == Last {
-		fmt.Printf("%s└─", string(padding))
+		fmt.Printf("%s└─", padding)
 	}
 
 	fmt.Printf("%s\n", name)
 
 	if entryKind == FileEntry {
-		return
+		return nil
 	}
 
 	fullPath := path + name + "/"
 	entries, err := os.ReadDir(fullPath)
 	if err != nil {
-		fmt.Println("Read dir err:", err)
-		os.Exit(1)
+		return err
 	}
 
 	if entryPos == Sibling {
-		padding = append(padding, '│', ' ', ' ')
+		childrenPadding := "│  "
+		padding += childrenPadding
 	} else if entryPos == Last {
-		padding = append(padding, ' ', ' ', ' ')
+		childrenPadding := "   "
+		padding += childrenPadding
 	}
 
 	entriesLen := len(entries)
-	
+
 	for i, entry := range entries {
 		name := entry.Name()
 
@@ -63,13 +64,15 @@ func printDirRecur(path string, name string, padding []rune, depthLimit int, ent
 			pos = Last
 		}
 
-		printDirRecur(fullPath, name, padding, depthLimit - 1, kind, pos)
+		if err := printDirRecur(fullPath, name, padding, depthLimit - 1, kind, pos); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func printDir(path string, maxDepth int) {
-	padding := make([]rune, 0)
-	printDirRecur("", path, padding, maxDepth, DirEntry, Root)
+func printDir(path string, maxDepth int) error {
+	return printDirRecur("", path, "", maxDepth, DirEntry, Root)
 }
 
 func main() {
@@ -83,5 +86,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	printDir(*folderPath, *maxDepth)
+	if err := printDir(*folderPath, *maxDepth); err != nil {
+		fmt.Println("Print err:", err)
+		os.Exit(1)
+	}
 }
